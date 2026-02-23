@@ -15,7 +15,6 @@ class TempLoc:
     def __init__(self, left, top):
         self.top = top
         self.left = left
-
 print("[[blue bold]INFO[/]] Set your mcsr ranked instance resolution to [cyan bold]400x400[/] in your launcher and launch it.")
 print("[dim]Press enter to continue")
 input()
@@ -32,6 +31,12 @@ print("[[blue bold]INFO[/]] To stop scraping, try to move the cursor into a corn
 print("[dim]Press enter to start scraping")
 input()
 
+pyautogui.PAUSE = 0.1
+def click(x, y):
+    pyautogui.moveTo(x, y)
+    time.sleep(0.01)
+    pyautogui.click(x, y)
+
 def wait_for_pixel(x, y, expected_red, bad_red = None, debug = False):
     if debug:
         print(f"Waiting for pixel ({expected_red})")
@@ -41,9 +46,9 @@ def wait_for_pixel(x, y, expected_red, bad_red = None, debug = False):
         if debug and pix != last_pix:
             print(f"Change {last_pix} -> {pix}")
             last_pix = pix
-        if pix.red == expected_red:
+        if pix[0] == expected_red:
             return
-        if pix.red == bad_red:
+        if pix[0] == bad_red:
             raise Exception("Bad pixel")
         time.sleep(0.2)
     raise Exception("Timeout")
@@ -71,7 +76,9 @@ def save_seed(seed_type, meta):
                 "type": seed_type,
                 "overworldSeed": meta["overworldSeed"],
                 "netherSeed": meta["netherSeed"],
-                "theEndSeed": meta["theEndSeed"]
+                "theEndSeed": meta["theEndSeed"],
+                "date": meta["date"],
+                "players": [player["nickname"] for player in meta["players"]]
                 }
         f.write(json.dumps(info))
         f.write("\n")
@@ -94,22 +101,22 @@ def scrape_page(loc, on_seed):
             continue
 
         # Click on the match
-        pyautogui.click(loc.left, y)
+        click(loc.left, y)
 
         # Wait for match to load and download replay
         try:
             wait_for_pixel(loc.left + 181, loc.top + 326, 111, bad_red = 44)
         except Exception as e:
-            pyautogui.click(loc.left + 58, loc.top + 350)
+            click(loc.left + 58, loc.top + 350)
             raise e
-        pyautogui.click(loc.left + 181, loc.top + 326)
+        click(loc.left + 181, loc.top + 326)
         # In the replay saving menu, name the replay and press download 
         pyautogui.write('seed_scraper')
-        pyautogui.click(loc.left + 81, loc.top + 186)
+        click(loc.left + 81, loc.top + 186)
 
         # Wait for replay to download and exit out of the match
         wait_for_pixel(loc.left + 58, loc.top + 350, 111)
-        pyautogui.click(loc.left + 58, loc.top + 350)
+        click(loc.left + 58, loc.top + 350)
 
         # Get the seed from the replay
         with ZipFile(REPLAY_PATH, 'r') as z:
@@ -126,9 +133,9 @@ def scrape_page(loc, on_seed):
 
 
 # Leaderboard
-pyautogui.click(loc.left + 252, loc.top + 307)
+click(loc.left + 252, loc.top + 307)
 # Elo Leaderboard
-pyautogui.click(loc.left + 31, loc.top + 126)
+click(loc.left + 31, loc.top + 126)
 wait_for_pixel(loc.left + 208, loc.top + 27, 192)
 
 with Progress(
@@ -144,19 +151,19 @@ with Progress(
         y = loc.top + start_y
         for i in range(num_players):
             # Player
-            pyautogui.click(loc.left, y)
+            click(loc.left, y)
             wait_for_pixel(loc.left - 109, loc.top + 357, 2)
             # Matches
-            pyautogui.click(loc.left - 89, loc.top + 66)
+            click(loc.left - 89, loc.top + 66)
             wait_for_pixel(loc.left + 127, loc.top + 351, 111)
             try:
                 scrape_page(loc, lambda: progress.advance(seeds_task))
             except:
                 pass
             # Exit matches
-            pyautogui.click(loc.left + 81, loc.top + 352)
+            click(loc.left + 81, loc.top + 352)
             # Exit player
-            pyautogui.click(loc.left - 89, loc.top + 356)
+            click(loc.left - 89, loc.top + 356)
             y += 11
             progress.advance(players_task)
         pyautogui.scroll(-23, x = loc.left, y = loc.top + 30)

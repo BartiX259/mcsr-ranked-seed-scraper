@@ -1,3 +1,5 @@
 pyautogui
+pydirectinput
+NBT
 pillow
 rich
