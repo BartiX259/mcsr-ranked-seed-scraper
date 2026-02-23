@@ -1,3 +1,0 @@
-{"type": "Village", "overworldSeed": "8201283420145700600", "netherSeed": "61618289250916", "theEndSeed": "8201283420145700600", "date": 1771696487047, "players": ["edcr", "ANJOUU"]}
-{"type": "Village", "overworldSeed": "414439281361961257", "netherSeed": "131923144665329", "theEndSeed": "414439281361961257", "date": 1771694996174, "players": ["edcr", "romuxii"]}
-{"type": "Village", "overworldSeed": "324419082694492193", "netherSeed": "80742147756866", "theEndSeed": "324419082694492193", "date": 1771624307904, "players": ["DARVY__X1", "edcr"]}
