@@ -2,19 +2,35 @@ import time
 import pyautogui
 import json
 import os
+import platform
 from zipfile import ZipFile
 from rich import print
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, MofNCompleteColumn
 from config import MINECRAFT_PATH, SEEDS_FILE, SAVE_SEEDS
 
+if platform.system() == "Windows":
+    SCROLL_MULTIPLIER = 120
+else:
+    SCROLL_MULTIPLIER = 1
+
 REPLAY_PATH = MINECRAFT_PATH + "/mcsrranked/replay/seed_scraper.rrf"
 if os.path.exists(REPLAY_PATH):
     os.remove(REPLAY_PATH)
 
-class TempLoc:
-    def __init__(self, left, top):
-        self.top = top
-        self.left = left
+EXISTING_IDS = set()
+if os.path.exists(SEEDS_FILE):
+    with open(SEEDS_FILE, "r") as f:
+        for line in f:
+            try:
+                data = json.loads(line)
+                if "matchId" in data:
+                    EXISTING_IDS.add(data["matchId"])
+            except json.JSONDecodeError:
+                pass
+
+class PixelException(Exception):
+    pass
+
 print("[[blue bold]INFO[/]] Set your mcsr ranked instance resolution to [cyan bold]400x400[/] in your launcher and launch it.")
 print("[dim]Press enter to continue")
 input()
@@ -42,6 +58,7 @@ def wait_for_pixel(x, y, expected_red, bad_red = None, debug = False):
         print(f"Waiting for pixel ({expected_red})")
     last_pix = None
     for i in range(50):
+        pyautogui.failSafeCheck()
         pix = pyautogui.pixel(x, y)
         if debug and pix != last_pix:
             print(f"Change {last_pix} -> {pix}")
@@ -49,9 +66,13 @@ def wait_for_pixel(x, y, expected_red, bad_red = None, debug = False):
         if pix[0] == expected_red:
             return
         if pix[0] == bad_red:
-            raise Exception("Bad pixel")
+            if debug:
+                print("Raise bad pixel")
+            raise PixelException("Bad pixel")
         time.sleep(0.2)
-    raise Exception("Timeout")
+    if debug:
+        print("Raise timeout")
+    raise PixelException("Timeout")
 
 
 def get_seed_type(pix):
@@ -85,6 +106,8 @@ def save_seed(seed_type, meta):
         f.write("\n")
 
 def scrape_page(loc, on_seed):
+    if os.path.exists(REPLAY_PATH):
+        os.remove(REPLAY_PATH)
     im = pyautogui.screenshot()
     y = loc.top + 15 - 11
     for i in range(20):
@@ -107,7 +130,7 @@ def scrape_page(loc, on_seed):
         # Wait for match to load and download replay
         try:
             wait_for_pixel(loc.left + 181, loc.top + 326, 111, bad_red = 44)
-        except Exception as e:
+        except PixelException as e:
             click(loc.left + 58, loc.top + 350)
             raise e
         click(loc.left + 181, loc.top + 326)
@@ -126,13 +149,16 @@ def scrape_page(loc, on_seed):
                 with z.open('meta.json') as f:
                     meta = json.load(f)
                     matchId = meta["matchId"]
-                    save_seed(seed, meta)
+                    if matchId in EXISTING_IDS:
+                        matchId = None
+                    else:
+                        EXISTING_IDS.add(matchId)
+                        save_seed(seed, meta)
         if matchId is not None:
             os.rename(REPLAY_PATH, os.path.dirname(REPLAY_PATH) + "/seed_scraper_" + str(matchId) + ".rrf")
-        else:
+            on_seed()
+        elif os.path.exists(REPLAY_PATH):
             os.remove(REPLAY_PATH)
-
-        on_seed()
 
         # Redo screenshot since we technically updated the match list
         im = pyautogui.screenshot()
@@ -164,7 +190,7 @@ with Progress(
             wait_for_pixel(loc.left + 127, loc.top + 351, 111)
             try:
                 scrape_page(loc, lambda: progress.advance(seeds_task))
-            except:
+            except PixelException:
                 pass
             # Exit matches
             click(loc.left + 81, loc.top + 352)
@@ -172,5 +198,7 @@ with Progress(
             click(loc.left - 89, loc.top + 356)
             y += 11
             progress.advance(players_task)
-        pyautogui.scroll(-23, x = loc.left, y = loc.top + 30)
+        pyautogui.moveTo(loc.left, loc.top + 30)
+        time.sleep(0.1)
+        pyautogui.scroll(-23 * SCROLL_MULTIPLIER)
 
