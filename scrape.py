@@ -74,6 +74,7 @@ def save_seed(seed_type, meta):
     with open(SEEDS_FILE, "a") as f:
         info = {
                 "type": seed_type,
+                "matchId": meta["matchId"],
                 "overworldSeed": meta["overworldSeed"],
                 "netherSeed": meta["netherSeed"],
                 "theEndSeed": meta["theEndSeed"],
@@ -119,12 +120,17 @@ def scrape_page(loc, on_seed):
         click(loc.left + 58, loc.top + 350)
 
         # Get the seed from the replay
+        matchId = None
         with ZipFile(REPLAY_PATH, 'r') as z:
             if 'meta.json' in z.namelist():
                 with z.open('meta.json') as f:
                     meta = json.load(f)
+                    matchId = meta["matchId"]
                     save_seed(seed, meta)
-        os.remove(REPLAY_PATH)
+        if matchId is not None:
+            os.rename(REPLAY_PATH, os.path.dirname(REPLAY_PATH) + "/seed_scraper_" + str(matchId) + ".rrf")
+        else:
+            os.remove(REPLAY_PATH)
 
         on_seed()
 
