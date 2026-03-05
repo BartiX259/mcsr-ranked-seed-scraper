@@ -4,7 +4,6 @@ import shutil
 import json
 import datetime
 import pydirectinput
-from nbt import nbt
 from rich import print
 from rich.console import Console
 from rich.progress import Progress
@@ -13,6 +12,27 @@ from config import MINECRAFT_PATH, PLAY_SEEDS_FILE, PLAY_SEEDS, MPK, LOAD_HOTBAR
 REPLAY_PATH = MINECRAFT_PATH + "/mcsrranked/replay/seed_scraper.rrf"
 WORLD_PATH = MINECRAFT_PATH + "/saves/seedscraper"
 LOG_PATH = MINECRAFT_PATH + "/logs/latest.log"
+IGT_PATH = MINECRAFT_PATH + "/saves/seedscraper/speedrunigt/record.json"
+
+EVENT_MAP = {
+    # SpeedrunIGT events
+    "enter_nether": "nether",
+    "enter_bastion": "bastion",
+    "enter_fortress": "fortress",
+    "nether_travel_blind": "blind",
+    "enter_stronghold": "stronghold",
+    "enter_end": "end",
+}
+
+STYLES = {
+    "start":      ("bright_green", "█"),
+    "nether":     ("red", "█"),
+    "bastion":    ("gold1", "▒"),
+    "fortress":   ("dark_red", "▓"),
+    "blind":      ("cyan", "█"),
+    "stronghold": ("grey70", "▒"),
+    "end":        ("purple", "█"),
+}
 
 def tab(n):
     for i in range(n):
@@ -102,6 +122,41 @@ def create_world(seed):
         pydirectinput.keyUp(LOAD_HOTBAR_BIND)
     print("[[green bold]OK[/]] World created.")
 
+def local_splits():
+    if not os.path.exists(IGT_PATH):
+        print(f"[[red bold]ERROR[/]] Speedrunigt not initialized ({IGT_PATH}).")
+        return None
+    splits = [(0, "start")]
+    with open(IGT_PATH, "r") as f:
+        data = json.load(f)
+        for timeline in data["timelines"]:
+            ev = timeline["name"]
+            if ev in EVENT_MAP:
+                splits.append((timeline["igt"], EVENT_MAP[ev]))
+        splits.append((data["final_igt"], "finish"))
+    return splits
+
+def print_splits(splits, max_time=None, finished=True):
+    (last_igt, last_ev) = splits[-1]
+    if max_time is None:
+        max_time = last_igt
+    width = 70
+    remaining = width
+    for i in range(len(splits) - 1):
+        (igt, ev) = splits[i]
+        (next_igt, _) = splits[i+1]
+        (color, char) = STYLES[ev]
+        char_count = min(remaining, max(1, width * (next_igt - igt) // max_time))
+        remaining -= char_count
+        print(f"[{color}]{char * char_count}", end="")
+    for i in range(remaining + 1):
+        print(" ", end="")
+    if finished:
+        s = (last_igt // 1000) % 60
+        m = (last_igt // 1000) // 60
+        print(f"{m}:{s:02d}")
+    else:
+        print("-:-")
 
 print("[[blue bold]INFO[/]] To [cyan bold]watch the pro replay[/] of the current seed, go to mcsr ranked -> my replays, the replay should be [cyan bold]first[/] in the list.")
 with open(PLAY_SEEDS_FILE, 'r') as f:
@@ -109,7 +164,6 @@ with open(PLAY_SEEDS_FILE, 'r') as f:
 i = 0
 while i < len(lines):
     line = lines[i]
-    seed = json.loads(line)
     try:
         seed = json.loads(line)
     except json.JSONDecodeError:
@@ -122,13 +176,23 @@ while i < len(lines):
     dt = datetime.datetime.fromtimestamp(seed['date'] / 1000.0)
     readable_date = dt.strftime("%b %d, %Y at %I:%M %p")
     replay_path = os.path.dirname(REPLAY_PATH) + "/seed_scraper_" + str(seed["matchId"]) + ".rrf"
-    print("[[green bold]OK[/]] Found seed")
+    print("[[green bold]OK[/]] Found seed.")
     if os.path.exists(replay_path):
         os.utime(replay_path, None)
     else:
         print("[[yellow bold]WARN[/]] No replay file for this seed.")
     print(f"[[blue bold]TYPE[/]] [yellow]{seed['type']}")
-    print(f"[[blue bold]GAME[/]] [yellow]{seed['players'][0]}[/] vs [yellow]{seed['players'][1]}[/], {readable_date}")
+    print(f"[[blue bold]GAME[/]] ", end="")
+    last = len(seed['players']) - 1
+    winner = seed['winner']
+    for (i, p) in enumerate(seed['players']):
+        if i == winner:
+            print(f"[green]{p}[/]", end="")
+        else:
+            print(f"[red]{p}[/]", end="")
+        if i != last:
+            print(" vs ", end="")
+    print(f", {readable_date}")
 
     while True:
         print("[[blue bold]INFO[/]] The script will sleep for 3 seconds then create this world. Make sure to tab into mcsr ranked during this time.")
@@ -144,6 +208,29 @@ while i < len(lines):
                 status.update(f"Creating world in [bold cyan]{j}[/]...")
                 time.sleep(1)
         create_world(seed)
+        print("[dim]Press enter after playing to see your splits, 'r' to restart the current seed.")
+        inp = input()
+        if inp == "r":
+            continue
+        all_splits = []
+        for (i, (p, s)) in enumerate(zip(seed['players'], seed['splits'])):
+            all_splits.append((p, s, i == winner))
+        sp = local_splits()
+        if sp is not None:
+            all_splits.append(("You", sp, True))
+            max_time = 0
+            name_len = 0
+            for (name, splits, _) in all_splits:
+                t = splits[-1][0]
+                if t > max_time:
+                    max_time = t
+                l = len(name)
+                if l > name_len:
+                    name_len = l
+            for (name, splits, finished) in all_splits:
+                print(name, end="")
+                print(" " * (name_len - len(name) + 1), end="")
+                print_splits(splits, max_time, finished)
         print("[dim]Press enter to find next seed, 'r' to restart the current seed.")
         inp = input()
         if inp == "r":

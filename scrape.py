@@ -28,6 +28,16 @@ if os.path.exists(SEEDS_FILE):
             except json.JSONDecodeError:
                 pass
 
+EVENT_MAP = {
+    # MCSR Ranked events
+    "story.enter_the_nether": "nether",
+    "nether.find_bastion": "bastion",
+    "nether.find_fortress": "fortress",
+    "projectelo.timeline.blind_travel": "blind",
+    "story.follow_ender_eye": "stronghold",
+    "story.enter_the_end": "end",
+}
+
 class PixelException(Exception):
     pass
 
@@ -89,10 +99,25 @@ def get_seed_type(pix):
             return "Ruined Portal"
     return None
 
-def save_seed(seed_type, meta):
+def save_seed(seed_type, meta, timelines):
     if seed_type is None:
         return
     with open(SEEDS_FILE, "a") as f:
+        ids = dict()
+        for (i, player) in enumerate(meta["players"]):
+            ids.update({player["uuid"]: i})
+        splits = []
+        if timelines:
+            finish_igt = meta["result"]["time"]
+            for _ in ids:
+                splits.append([(0, "start")])
+            for t in reversed(timelines):
+                ev = t["type"]
+                if ev in EVENT_MAP:
+                    i = ids[t["uuid"]]
+                    splits[i].append((t["time"], EVENT_MAP[ev]))
+            for t in splits:
+                t.append((finish_igt, "finish"))
         info = {
                 "type": seed_type,
                 "matchId": meta["matchId"],
@@ -100,7 +125,9 @@ def save_seed(seed_type, meta):
                 "netherSeed": meta["netherSeed"],
                 "theEndSeed": meta["theEndSeed"],
                 "date": meta["date"],
-                "players": [player["nickname"] for player in meta["players"]]
+                "players": [player["nickname"] for player in meta["players"]],
+                "winner": ids[meta["result"]["uuid"]],
+                "splits": splits
                 }
         f.write(json.dumps(info))
         f.write("\n")
@@ -141,19 +168,23 @@ def scrape_page(loc, on_seed):
         # Wait for replay to download and exit out of the match
         wait_for_pixel(loc.left + 58, loc.top + 350, 111)
         click(loc.left + 58, loc.top + 350)
+        time.sleep(0.2)
 
         # Get the seed from the replay
         matchId = None
         with ZipFile(REPLAY_PATH, 'r') as z:
             if 'meta.json' in z.namelist():
-                with z.open('meta.json') as f:
-                    meta = json.load(f)
+                with z.open('meta.json') as m:
+                    meta = json.load(m)
                     matchId = meta["matchId"]
                     if matchId in EXISTING_IDS:
                         matchId = None
                     else:
                         EXISTING_IDS.add(matchId)
-                        save_seed(seed, meta)
+                        if 'timelines.json' in z.namelist():
+                            with z.open('timelines.json') as t:
+                                timelines = json.load(t)
+                                save_seed(seed, meta, timelines)
         if matchId is not None:
             os.rename(REPLAY_PATH, os.path.dirname(REPLAY_PATH) + "/seed_scraper_" + str(matchId) + ".rrf")
             on_seed()

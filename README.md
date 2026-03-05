@@ -1,6 +1,6 @@
 # mcsr-ranked-seed-scraper
 
-A python bot which uses the MCSR Ranked client to download replays from the leaderboard, extract the seeds and instantly generate them for you to practice.
+A python bot which uses the MCSR Ranked client to download replays from the leaderboard, extract the seeds and instantly generate them for you to practice. You can compare your splits with the pros and watch their replay to learn where you can improve.
 
 ## Prerequisites
 
