@@ -8,10 +8,11 @@ from nbt import nbt
 from rich import print
 from rich.console import Console
 from rich.progress import Progress
-from config import MINECRAFT_PATH, PLAY_SEEDS_FILE, PLAY_SEEDS
+from config import MINECRAFT_PATH, PLAY_SEEDS_FILE, PLAY_SEEDS, MPK, LOAD_HOTBAR_BIND
 
 REPLAY_PATH = MINECRAFT_PATH + "/mcsrranked/replay/seed_scraper.rrf"
-WORLD_PATH = MINECRAFT_PATH + '/saves/seedscraper'
+WORLD_PATH = MINECRAFT_PATH + "/saves/seedscraper"
+LOG_PATH = MINECRAFT_PATH + "/logs/latest.log"
 
 def tab(n):
     for i in range(n):
@@ -24,6 +25,18 @@ def shift_tab(n):
     time.sleep(0.05)
     tab(n)
     pydirectinput.keyUp('shift')
+
+def wait_for_world_load():
+    with open(LOG_PATH, 'r', encoding='utf-8', errors='ignore') as f:
+        f.seek(0, os.SEEK_END)
+        while True:
+            line = f.readline()
+            if not line:
+                time.sleep(0.2)
+                continue
+            if "logged in with entity id" in line:
+                time.sleep(0.5)
+                return True
 
 pydirectinput.PAUSE = 0.02
 
@@ -45,36 +58,48 @@ def create_world(seed):
         pydirectinput.press('backspace')
         pydirectinput.press('backspace')
         pydirectinput.keyUp('ctrl')
-        pydirectinput.write('seedscraper')
+        pydirectinput.write('seedscraper', interval=0.005)
         progress.advance(task)
         # Adv. seed
         shift_tab(1)
         pydirectinput.press('enter')
         progress.advance(task)
         tab(4)
-        pydirectinput.write(seed['overworldSeed'])
+        pydirectinput.write(seed['overworldSeed'], interval=0.005)
         tab(1)
         progress.advance(task)
-        pydirectinput.write(seed['netherSeed'])
+        pydirectinput.write(seed['netherSeed'], interval=0.005)
         tab(1)
         progress.advance(task)
-        pydirectinput.write(seed['theEndSeed'])
+        pydirectinput.write(seed['theEndSeed'], interval=0.005)
         tab(2)
         progress.advance(task)
         pydirectinput.press('enter')
+        # Switch to creative if using MPK
+        tab(2)
+        if MPK:
+            pydirectinput.press('enter')
+            pydirectinput.press('enter')
         # Easy difficulty
-        tab(3)
+        tab(1)
         for i in range(3):
             pydirectinput.press('enter')
         progress.advance(task)
         # Allow cheats
         tab(1)
-        pydirectinput.press('enter')
+        if not MPK:
+            pydirectinput.press('enter')
         progress.advance(task)
         # Create
         tab(4)
         pydirectinput.press('enter')
         progress.advance(task)
+    if MPK:
+        print("[[blue bold]INFO[/]] Waiting for world load to use MPK.")
+        wait_for_world_load()
+        pydirectinput.keyDown(LOAD_HOTBAR_BIND)
+        pydirectinput.press('1')
+        pydirectinput.keyUp(LOAD_HOTBAR_BIND)
     print("[[green bold]OK[/]] World created.")
 
 
@@ -115,8 +140,8 @@ while i < len(lines):
 
         console = Console()
         with console.status("[bold cyan]Creating world...", spinner_style="bold cyan") as status:
-            for i in range(3, 0, -1):
-                status.update(f"Creating world in [bold cyan]{i}[/]...")
+            for j in range(3, 0, -1):
+                status.update(f"Creating world in [bold cyan]{j}[/]...")
                 time.sleep(1)
         create_world(seed)
         print("[dim]Press enter to find next seed, 'r' to restart the current seed.")
@@ -134,8 +159,8 @@ while i < len(lines):
     del lines[i]
     with open(PLAY_SEEDS_FILE, 'w') as f:
         f.writelines(lines)
-    print("[[green bold]OK[/]] Seed removed from queue.")
-    
+    print(f"[[green bold]OK[/]] Seed removed from queue. {len(lines)} seeds remaining.")
+
 print("[[yellow bold]WARN[/]] No more seeds, exiting.")
 
 

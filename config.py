@@ -9,11 +9,22 @@ PLAY_SEEDS_FILE = SEEDS_FILE
 # Which seeds to save while scraping
 SAVE_SEEDS = {
     "Village": True,
+    "Buried Treasure": True,
+    "Ruined Portal": True,
+    "Shipwreck": True,
+    "Desert Temple": True
+}
+# Which seeds to play
+PLAY_SEEDS = {
+    "Village": True,
     "Buried Treasure": False,
     "Ruined Portal": False,
     "Shipwreck": False,
-    "Desert Temple": False
+    "Desert Temple": True
 }
-# Which seeds to play
-PLAY_SEEDS = SAVE_SEEDS
+
+# Load into world with mini practice kit
+MPK = False
+# Keybind for 'Load Hotbar Activator' which loads MPK
+LOAD_HOTBAR_BIND = "p"
 
