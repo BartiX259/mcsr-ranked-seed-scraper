@@ -118,6 +118,7 @@ def save_seed(seed_type, meta, timelines):
                     splits[i].append((t["time"], EVENT_MAP[ev]))
             for t in splits:
                 t.append((finish_igt, "finish"))
+        winner_id = meta["result"]["uuid"]
         info = {
                 "type": seed_type,
                 "matchId": meta["matchId"],
@@ -126,7 +127,7 @@ def save_seed(seed_type, meta, timelines):
                 "theEndSeed": meta["theEndSeed"],
                 "date": meta["date"],
                 "players": [player["nickname"] for player in meta["players"]],
-                "winner": ids[meta["result"]["uuid"]],
+                "winner": ids[winner_id] if winner_id is not None else None,
                 "splits": splits
                 }
         f.write(json.dumps(info))

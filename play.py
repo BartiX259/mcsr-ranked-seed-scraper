@@ -185,12 +185,12 @@ while i < len(lines):
     print(f"[[blue bold]GAME[/]] ", end="")
     last = len(seed['players']) - 1
     winner = seed['winner']
-    for (i, p) in enumerate(seed['players']):
-        if i == winner:
+    for (j, p) in enumerate(seed['players']):
+        if j == winner:
             print(f"[green]{p}[/]", end="")
         else:
             print(f"[red]{p}[/]", end="")
-        if i != last:
+        if j != last:
             print(" vs ", end="")
     print(f", {readable_date}")
 
@@ -213,8 +213,8 @@ while i < len(lines):
         if inp == "r":
             continue
         all_splits = []
-        for (i, (p, s)) in enumerate(zip(seed['players'], seed['splits'])):
-            all_splits.append((p, s, i == winner))
+        for (j, (p, s)) in enumerate(zip(seed['players'], seed['splits'])):
+            all_splits.append((p, s, j == winner))
         sp = local_splits()
         if sp is not None:
             all_splits.append(("You", sp, True))
