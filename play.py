@@ -25,7 +25,7 @@ EVENT_MAP = {
 }
 
 STYLES = {
-    "start":      ("bright_green", "█"),
+    "overworld":  ("bright_green", "█"),
     "nether":     ("red", "█"),
     "bastion":    ("gold1", "▒"),
     "fortress":   ("dark_red", "▓"),
@@ -126,7 +126,7 @@ def local_splits():
     if not os.path.exists(IGT_PATH):
         print(f"[[red bold]ERROR[/]] Speedrunigt not initialized ({IGT_PATH}).")
         return None
-    splits = [(0, "start")]
+    splits = [(0, "overworld")]
     with open(IGT_PATH, "r") as f:
         data = json.load(f)
         for timeline in data["timelines"]:
@@ -231,6 +231,18 @@ while i < len(lines):
                 print(name, end="")
                 print(" " * (name_len - len(name) + 1), end="")
                 print_splits(splits, max_time, finished)
+            top_splits = all_splits[winner][1]
+            for j in range(len(sp) - 1):
+                (igt, ev) = sp[j]
+                (next_igt, _) = sp[j+1]
+                (top_igt, top_ev) = top_splits[j]
+                (next_top_igt, _) = top_splits[j+1]
+                if ev != top_ev:
+                    print(f"[[yellow bold]WARN[/]] Event mismatch ({ev}, {top_ev})")
+                    break
+                print(f"[{STYLES[ev][0]}]{ev.capitalize()}[/]", end="")
+                print(" " * (11 - len(ev)), end="")
+                console.print(f"{(next_igt - igt) / (next_top_igt - top_igt):.2f}x [dim]slower[/]", highlight=False)
         print("[dim]Press enter to find next seed, 'r' to restart the current seed.")
         inp = input()
         if inp == "r":

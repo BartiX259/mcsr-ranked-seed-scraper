@@ -110,7 +110,7 @@ def save_seed(seed_type, meta, timelines):
         if timelines:
             finish_igt = meta["result"]["time"]
             for _ in ids:
-                splits.append([(0, "start")])
+                splits.append([(0, "overworld")])
             for t in reversed(timelines):
                 ev = t["type"]
                 if ev in EVENT_MAP:
