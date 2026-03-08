@@ -23,8 +23,6 @@ PLAY_SEEDS = {
     "Desert Temple": True
 }
 
-# Load into world with mini practice kit
-MPK = False
 # Keybind for 'Load Hotbar Activator' which loads MPK
 LOAD_HOTBAR_BIND = "p"
 

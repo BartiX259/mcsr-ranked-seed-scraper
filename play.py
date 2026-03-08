@@ -7,7 +7,7 @@ import pydirectinput
 from rich import print
 from rich.console import Console
 from rich.progress import Progress
-from config import MINECRAFT_PATH, PLAY_SEEDS_FILE, PLAY_SEEDS, MPK, LOAD_HOTBAR_BIND
+from config import MINECRAFT_PATH, PLAY_SEEDS_FILE, PLAY_SEEDS, LOAD_HOTBAR_BIND
 
 REPLAY_PATH = MINECRAFT_PATH + "/mcsrranked/replay/seed_scraper.rrf"
 WORLD_PATH = MINECRAFT_PATH + "/saves/seedscraper"
@@ -60,7 +60,7 @@ def wait_for_world_load():
 
 pydirectinput.PAUSE = 0.02
 
-def create_world(seed):
+def create_world(seed, mpk):
     with Progress() as progress:
         task = progress.add_task("[bold magenta]Creating world", total=9)
         if os.path.exists(WORLD_PATH):
@@ -97,7 +97,7 @@ def create_world(seed):
         pydirectinput.press('enter')
         # Switch to creative if using MPK
         tab(2)
-        if MPK:
+        if mpk:
             pydirectinput.press('enter')
             pydirectinput.press('enter')
         # Easy difficulty
@@ -107,14 +107,14 @@ def create_world(seed):
         progress.advance(task)
         # Allow cheats
         tab(1)
-        if not MPK:
+        if not mpk:
             pydirectinput.press('enter')
         progress.advance(task)
         # Create
         tab(4)
         pydirectinput.press('enter')
         progress.advance(task)
-    if MPK:
+    if mpk:
         print("[[blue bold]INFO[/]] Waiting for world load to use MPK.")
         wait_for_world_load()
         pydirectinput.keyDown(LOAD_HOTBAR_BIND)
@@ -197,17 +197,20 @@ while i < len(lines):
     while True:
         print("[[blue bold]INFO[/]] The script will sleep for 3 seconds then create this world. Make sure to tab into mcsr ranked during this time.")
         print("[[blue bold]INFO[/]] Make sure to be in the [bold cyan]minecraft main menu[/], not the ranked main menu.")
-        print("[dim]Press enter to continue, type 's' to skip this seed.")
+        print("[dim]Press enter to continue, 'p' to use MPK, 's' to skip this seed.")
         inp = input()
+        mpk = False
         if inp == "s":
             break
+        elif inp == "p":
+            mpk = True
 
         console = Console()
         with console.status("[bold cyan]Creating world...", spinner_style="bold cyan") as status:
             for j in range(3, 0, -1):
                 status.update(f"Creating world in [bold cyan]{j}[/]...")
                 time.sleep(1)
-        create_world(seed)
+        create_world(seed, mpk)
         print("[dim]Press enter after playing to see your splits, 'r' to restart the current seed.")
         inp = input()
         if inp == "r":
@@ -232,7 +235,7 @@ while i < len(lines):
                 print(" " * (name_len - len(name) + 1), end="")
                 print_splits(splits, max_time, finished)
             top_splits = all_splits[winner][1]
-            for j in range(len(sp) - 1):
+            for j in range(min(len(sp), len(top_splits)) - 1):
                 (igt, ev) = sp[j]
                 (next_igt, _) = sp[j+1]
                 (top_igt, top_ev) = top_splits[j]
@@ -242,7 +245,12 @@ while i < len(lines):
                     break
                 print(f"[{STYLES[ev][0]}]{ev.capitalize()}[/]", end="")
                 print(" " * (11 - len(ev)), end="")
-                console.print(f"{(next_igt - igt) / (next_top_igt - top_igt):.2f}x [dim]slower[/]", highlight=False)
+                a = next_igt - igt
+                b = next_top_igt - top_igt
+                if a > b:
+                    console.print(f"{a/b:.2f}x [dim]slower[/]", highlight=False)
+                else:
+                    console.print(f"{b/a:.2f}x [dim cyan]faster[/]", highlight=False)
         print("[dim]Press enter to find next seed, 'r' to restart the current seed.")
         inp = input()
         if inp == "r":
