@@ -161,6 +161,7 @@ def print_splits(splits, max_time=None, finished=True):
 print("[[blue bold]INFO[/]] To [cyan bold]watch the pro replay[/] of the current seed, go to mcsr ranked -> my replays, the replay should be [cyan bold]first[/] in the list.")
 with open(PLAY_SEEDS_FILE, 'r') as f:
     lines = f.readlines()
+print(f"[[blue bold]INFO[/]] {len(lines)} seeds remaining.")
 i = 0
 while i < len(lines):
     line = lines[i]
@@ -181,10 +182,21 @@ while i < len(lines):
         os.utime(replay_path, None)
     else:
         print("[[yellow bold]WARN[/]] No replay file for this seed.")
+    winner = seed['winner']
+    expected_splits = ['overworld', 'nether', 'bastion', 'fortress', 'blind', 'stronghold', 'end', 'finish']
+    winner_splits = [s[1] for s in seed['splits'][winner or 0]]
+    if winner_splits != expected_splits:
+        print(f"[[yellow bold]WARN[/]] Unexpected splits: ", end="")
+        for j, s in enumerate(winner_splits):
+            if s == 'finish':
+                break
+            if j:
+                print(" -> ", end="")
+            print(f"[{STYLES[s][0]}]{s}", end="")
+        print()
     print(f"[[blue bold]TYPE[/]] [yellow]{seed['type']}")
     print(f"[[blue bold]GAME[/]] ", end="")
     last = len(seed['players']) - 1
-    winner = seed['winner']
     for (j, p) in enumerate(seed['players']):
         if j == winner:
             print(f"[green]{p}[/]", end="")
@@ -234,7 +246,7 @@ while i < len(lines):
                 print(name, end="")
                 print(" " * (name_len - len(name) + 1), end="")
                 print_splits(splits, max_time, finished)
-            top_splits = all_splits[winner][1]
+            top_splits = all_splits[winner or 0][1]
             for j in range(min(len(sp), len(top_splits)) - 1):
                 (igt, ev) = sp[j]
                 (next_igt, _) = sp[j+1]

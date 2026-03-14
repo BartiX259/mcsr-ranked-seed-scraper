@@ -17,9 +17,9 @@ SAVE_SEEDS = {
 # Which seeds to play
 PLAY_SEEDS = {
     "Village": True,
-    "Buried Treasure": False,
-    "Ruined Portal": False,
-    "Shipwreck": False,
+    "Buried Treasure": True,
+    "Ruined Portal": True,
+    "Shipwreck": True,
     "Desert Temple": True
 }
 

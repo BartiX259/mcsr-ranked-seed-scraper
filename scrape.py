@@ -220,6 +220,7 @@ with Progress(
             # Matches
             click(loc.left - 89, loc.top + 66)
             wait_for_pixel(loc.left + 127, loc.top + 351, 111)
+            time.sleep(0.1)
             try:
                 scrape_page(loc, lambda: progress.advance(seeds_task))
             except PixelException:
