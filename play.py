@@ -247,22 +247,27 @@ while i < len(lines):
                 print(" " * (name_len - len(name) + 1), end="")
                 print_splits(splits, max_time, finished)
             top_splits = all_splits[winner or 0][1]
-            for j in range(min(len(sp), len(top_splits)) - 1):
+            j = 0
+            k = 0
+            while j < len(sp) - 1 and k < len(top_splits) - 1:
                 (igt, ev) = sp[j]
                 (next_igt, _) = sp[j+1]
-                (top_igt, top_ev) = top_splits[j]
-                (next_top_igt, _) = top_splits[j+1]
+                (top_igt, top_ev) = top_splits[k]
+                (next_top_igt, _) = top_splits[k+1]
                 if ev != top_ev:
-                    print(f"[[yellow bold]WARN[/]] Event mismatch ({ev}, {top_ev})")
-                    break
+                    # print(f"[[yellow bold]WARN[/]] Event mismatch ({ev}, {top_ev})")
+                    k += 1
+                    continue
                 print(f"[{STYLES[ev][0]}]{ev.capitalize()}[/]", end="")
                 print(" " * (11 - len(ev)), end="")
                 a = next_igt - igt
                 b = next_top_igt - top_igt
                 if a > b:
-                    console.print(f"{a/b:.2f}x [dim]slower[/]", highlight=False)
+                    console.print(f"{a/(b+1):.2f}x ({(a-b)/1000:.1f}s) [dim]slower[/]", highlight=False)
                 else:
-                    console.print(f"{b/a:.2f}x [dim cyan]faster[/]", highlight=False)
+                    console.print(f"{b/(a+1):.2f}x ({(b-a)/1000:.1f}s) [dim cyan]faster[/]", highlight=False)
+                j += 1
+                k += 1
         print("[dim]Press enter to find next seed, 'r' to restart the current seed.")
         inp = input()
         if inp == "r":

@@ -60,7 +60,7 @@ input()
 pyautogui.PAUSE = 0.1
 def click(x, y):
     pyautogui.moveTo(x, y)
-    time.sleep(0.01)
+    time.sleep(0.02)
     pyautogui.click(x, y)
 
 def wait_for_pixel(x, y, expected_red, bad_red = None, debug = False):
