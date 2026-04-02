@@ -1,4 +1,5 @@
 import os
+import sys
 import glob
 import json
 import shutil
@@ -9,8 +10,11 @@ replay_dir = os.path.join(MINECRAFT_PATH, "mcsrranked", "replay")
 saves_dir = os.path.join(MINECRAFT_PATH, "saves")
 pattern = os.path.join(replay_dir, "seed_scraper_*.rrf")
 
-print("[dim]Press enter to remove orphaned replays and seeds, 'c' to clear [cyan bold]all[/] replays and seeds, 'w' to clear junk worlds.")
-inp = input()
+if '-w' in sys.argv:
+    inp = 'w'
+else:
+    print("[dim]Press enter to remove orphaned replays and seeds, 'c' to clear [cyan bold]all[/] replays and seeds, 'w' to clear junk worlds.")
+    inp = input()
 
 if inp == "":
     replay_files = glob.glob(pattern)

@@ -7,12 +7,12 @@ import pydirectinput
 from rich import print
 from rich.console import Console
 from rich.progress import Progress
-from config import MINECRAFT_PATH, PLAY_SEEDS_FILE, PLAY_SEEDS, LOAD_HOTBAR_BIND
+from config import MINECRAFT_PATH, PLAY_SEEDS_FILE, PLAY_SEEDS, LOAD_HOTBAR_BIND, REBIND_TOGGLE_HOTKEY
 
-REPLAY_PATH = MINECRAFT_PATH + "/mcsrranked/replay/seed_scraper.rrf"
+REPLAY_PATH = MINECRAFT_PATH + "/mcsrranked/replay"
 WORLD_PATH = MINECRAFT_PATH + "/saves/seedscraper"
 LOG_PATH = MINECRAFT_PATH + "/logs/latest.log"
-IGT_PATH = MINECRAFT_PATH + "/saves/seedscraper/speedrunigt/record.json"
+IGT_PATH = WORLD_PATH + "/speedrunigt/record.json"
 
 EVENT_MAP = {
     # SpeedrunIGT events
@@ -46,6 +46,18 @@ def shift_tab(n):
     tab(n)
     pydirectinput.keyUp('shift')
 
+def write(text):
+    prev_pause = pydirectinput.PAUSE
+    pydirectinput.PAUSE = 0.005
+    pydirectinput.press(REBIND_TOGGLE_HOTKEY)
+    if REBIND_TOGGLE_HOTKEY.isprintable():
+        pydirectinput.press('backspace')
+    pydirectinput.write(text, interval=0)
+    pydirectinput.PAUSE = prev_pause
+    pydirectinput.press(REBIND_TOGGLE_HOTKEY)
+    if REBIND_TOGGLE_HOTKEY.isprintable():
+        pydirectinput.press('backspace')
+
 def wait_for_world_load():
     with open(LOG_PATH, 'r', encoding='utf-8', errors='ignore') as f:
         f.seek(0, os.SEEK_END)
@@ -78,20 +90,20 @@ def create_world(seed, mpk):
         pydirectinput.press('backspace')
         pydirectinput.press('backspace')
         pydirectinput.keyUp('ctrl')
-        pydirectinput.write('seedscraper', interval=0.005)
+        write('seedscraper')
         progress.advance(task)
         # Adv. seed
         shift_tab(1)
         pydirectinput.press('enter')
         progress.advance(task)
         tab(4)
-        pydirectinput.write(seed['overworldSeed'], interval=0.005)
+        write(seed['overworldSeed'])
         tab(1)
         progress.advance(task)
-        pydirectinput.write(seed['netherSeed'], interval=0.005)
+        write(seed['netherSeed'])
         tab(1)
         progress.advance(task)
-        pydirectinput.write(seed['theEndSeed'], interval=0.005)
+        write(seed['theEndSeed'])
         tab(2)
         progress.advance(task)
         pydirectinput.press('enter')
@@ -176,7 +188,7 @@ while i < len(lines):
         continue
     dt = datetime.datetime.fromtimestamp(seed['date'] / 1000.0)
     readable_date = dt.strftime("%b %d, %Y at %I:%M %p")
-    replay_path = os.path.dirname(REPLAY_PATH) + "/seed_scraper_" + str(seed["matchId"]) + ".rrf"
+    replay_path = REPLAY_PATH + "/seed_scraper_" + str(seed["matchId"]) + ".rrf"
     print("[[green bold]OK[/]] Found seed.")
     if os.path.exists(replay_path):
         os.utime(replay_path, None)
@@ -205,6 +217,11 @@ while i < len(lines):
         if j != last:
             print(" vs ", end="")
     print(f", {readable_date}")
+
+    if 'vods' in seed:
+        for v in seed['vods']:
+            print(f"[[blue bold]VOD[/]] ", end="")
+            print(v)
 
     while True:
         print("[[blue bold]INFO[/]] The script will sleep for 3 seconds then create this world. Make sure to tab into mcsr ranked during this time.")
@@ -286,5 +303,4 @@ while i < len(lines):
     print(f"[[green bold]OK[/]] Seed removed from queue. {len(lines)} seeds remaining.")
 
 print("[[yellow bold]WARN[/]] No more seeds, exiting.")
-
 

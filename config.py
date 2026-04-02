@@ -26,3 +26,6 @@ PLAY_SEEDS = {
 # Keybind for 'Load Hotbar Activator' which loads MPK
 LOAD_HOTBAR_BIND = "p"
 
+# Keybind which toggles keyboard rebinding in toolscreen
+REBIND_TOGGLE_HOTKEY = "'"
+

@@ -3,10 +3,11 @@ import pyautogui
 import json
 import os
 import platform
+import requests
 from zipfile import ZipFile
 from rich import print
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, MofNCompleteColumn
-from config import MINECRAFT_PATH, SEEDS_FILE, SAVE_SEEDS
+from config import MINECRAFT_PATH, SEEDS_FILE, SAVE_SEEDS, REBIND_TOGGLE_HOTKEY 
 
 if platform.system() == "Windows":
     SCROLL_MULTIPLIER = 120
@@ -118,6 +119,12 @@ def save_seed(seed_type, meta, timelines):
                     splits[i].append((t["time"], EVENT_MAP[ev]))
             for t in splits:
                 t.append((finish_igt, "finish"))
+        try:
+            j = requests.get(f"https://api.mcsrranked.com/matches/{meta['matchId']}").json()
+            start_time = (meta["date"] - meta["result"]["time"]) // 1000
+            vods = [f"{vod['url']}?t={(start_time - vod['startsAt'])}s" for vod in j["data"]["vod"]]
+        except e:
+            print(e)
         winner_id = meta["result"]["uuid"]
         info = {
                 "type": seed_type,
@@ -127,6 +134,7 @@ def save_seed(seed_type, meta, timelines):
                 "theEndSeed": meta["theEndSeed"],
                 "date": meta["date"],
                 "players": [player["nickname"] for player in meta["players"]],
+                "vods": vods,
                 "winner": ids[winner_id] if winner_id is not None else None,
                 "splits": splits
                 }
@@ -163,7 +171,9 @@ def scrape_page(loc, on_seed):
             raise e
         click(loc.left + 181, loc.top + 326)
         # In the replay saving menu, name the replay and press download 
+        pyautogui.press(REBIND_TOGGLE_HOTKEY)
         pyautogui.write('seed_scraper')
+        pyautogui.press(REBIND_TOGGLE_HOTKEY)
         click(loc.left + 81, loc.top + 186)
 
         # Wait for replay to download and exit out of the match
@@ -186,6 +196,8 @@ def scrape_page(loc, on_seed):
                             with z.open('timelines.json') as t:
                                 timelines = json.load(t)
                                 save_seed(seed, meta, timelines)
+                        else:
+                            matchId = None
         if matchId is not None:
             os.rename(REPLAY_PATH, os.path.dirname(REPLAY_PATH) + "/seed_scraper_" + str(matchId) + ".rrf")
             on_seed()

@@ -3,3 +3,5 @@ pydirectinput
 NBT
 pillow
 rich
+beaupy
+requests
