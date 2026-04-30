@@ -48,15 +48,18 @@ def shift_tab(n):
 
 def write(text):
     prev_pause = pydirectinput.PAUSE
-    pydirectinput.PAUSE = 0.005
+    pydirectinput.PAUSE = 0.01
+    time.sleep(0.05)
     pydirectinput.press(REBIND_TOGGLE_HOTKEY)
     if REBIND_TOGGLE_HOTKEY.isprintable():
         pydirectinput.press('backspace')
-    pydirectinput.write(text, interval=0)
+    pydirectinput.write(text, interval=0.01)
     pydirectinput.PAUSE = prev_pause
+    time.sleep(0.05)
     pydirectinput.press(REBIND_TOGGLE_HOTKEY)
     if REBIND_TOGGLE_HOTKEY.isprintable():
         pydirectinput.press('backspace')
+    time.sleep(0.05)
 
 def wait_for_world_load():
     with open(LOG_PATH, 'r', encoding='utf-8', errors='ignore') as f:
@@ -94,19 +97,22 @@ def create_world(seed, mpk):
         progress.advance(task)
         # Adv. seed
         shift_tab(1)
-        pydirectinput.press('enter')
-        progress.advance(task)
-        tab(4)
-        write(seed['overworldSeed'])
-        tab(1)
-        progress.advance(task)
-        write(seed['netherSeed'])
-        tab(1)
-        progress.advance(task)
-        write(seed['theEndSeed'])
-        tab(2)
-        progress.advance(task)
-        pydirectinput.press('enter')
+        if seed:
+            pydirectinput.press('enter')
+            progress.advance(task)
+            tab(4)
+            write(seed['overworldSeed'])
+            tab(1)
+            progress.advance(task)
+            write(seed['netherSeed'])
+            tab(1)
+            progress.advance(task)
+            write(seed['theEndSeed'])
+            tab(2)
+            progress.advance(task)
+            pydirectinput.press('enter')
+        else:
+            progress.update(task, advance=4)
         # Switch to creative if using MPK
         tab(2)
         if mpk:
@@ -170,137 +176,138 @@ def print_splits(splits, max_time=None, finished=True):
     else:
         print("-:-")
 
-print("[[blue bold]INFO[/]] To [cyan bold]watch the pro replay[/] of the current seed, go to mcsr ranked -> my replays, the replay should be [cyan bold]first[/] in the list.")
-with open(PLAY_SEEDS_FILE, 'r') as f:
-    lines = f.readlines()
-print(f"[[blue bold]INFO[/]] {len(lines)} seeds remaining.")
-i = 0
-while i < len(lines):
-    line = lines[i]
-    try:
-        seed = json.loads(line)
-    except json.JSONDecodeError:
-        print("[[red bold]ERROR[/]] Corrupt line in seeds file, skipping.")
-        i += 1
-        continue
-    if not PLAY_SEEDS.get(seed['type'], False):
-        i += 1
-        continue
-    dt = datetime.datetime.fromtimestamp(seed['date'] / 1000.0)
-    readable_date = dt.strftime("%b %d, %Y at %I:%M %p")
-    replay_path = REPLAY_PATH + "/seed_scraper_" + str(seed["matchId"]) + ".rrf"
-    print("[[green bold]OK[/]] Found seed.")
-    if os.path.exists(replay_path):
-        os.utime(replay_path, None)
-    else:
-        print("[[yellow bold]WARN[/]] No replay file for this seed.")
-    winner = seed['winner']
-    expected_splits = ['overworld', 'nether', 'bastion', 'fortress', 'blind', 'stronghold', 'end', 'finish']
-    winner_splits = [s[1] for s in seed['splits'][winner or 0]]
-    if winner_splits != expected_splits:
-        print(f"[[yellow bold]WARN[/]] Unexpected splits: ", end="")
-        for j, s in enumerate(winner_splits):
-            if s == 'finish':
-                break
-            if j:
-                print(" -> ", end="")
-            print(f"[{STYLES[s][0]}]{s}", end="")
-        print()
-    print(f"[[blue bold]TYPE[/]] [yellow]{seed['type']}")
-    print(f"[[blue bold]GAME[/]] ", end="")
-    last = len(seed['players']) - 1
-    for (j, p) in enumerate(seed['players']):
-        if j == winner:
-            print(f"[green]{p}[/]", end="")
-        else:
-            print(f"[red]{p}[/]", end="")
-        if j != last:
-            print(" vs ", end="")
-    print(f", {readable_date}")
-
-    if 'vods' in seed:
-        for v in seed['vods']:
-            print(f"[[blue bold]VOD[/]] ", end="")
-            print(v)
-
-    while True:
-        print("[[blue bold]INFO[/]] The script will sleep for 3 seconds then create this world. Make sure to tab into mcsr ranked during this time.")
-        print("[[blue bold]INFO[/]] Make sure to be in the [bold cyan]minecraft main menu[/], not the ranked main menu.")
-        print("[dim]Press enter to continue, 'p' to use MPK, 's' to skip this seed.")
-        inp = input()
-        mpk = False
-        if inp == "s":
-            break
-        elif inp == "p":
-            mpk = True
-
-        console = Console()
-        with console.status("[bold cyan]Creating world...", spinner_style="bold cyan") as status:
-            for j in range(3, 0, -1):
-                status.update(f"Creating world in [bold cyan]{j}[/]...")
-                time.sleep(1)
-        create_world(seed, mpk)
-        print("[dim]Press enter after playing to see your splits, 'r' to restart the current seed.")
-        inp = input()
-        if inp == "r":
-            continue
-        all_splits = []
-        for (j, (p, s)) in enumerate(zip(seed['players'], seed['splits'])):
-            all_splits.append((p, s, j == winner))
-        sp = local_splits()
-        if sp is not None:
-            all_splits.append(("You", sp, True))
-            max_time = 0
-            name_len = 0
-            for (name, splits, _) in all_splits:
-                t = splits[-1][0]
-                if t > max_time:
-                    max_time = t
-                l = len(name)
-                if l > name_len:
-                    name_len = l
-            for (name, splits, finished) in all_splits:
-                print(name, end="")
-                print(" " * (name_len - len(name) + 1), end="")
-                print_splits(splits, max_time, finished)
-            top_splits = all_splits[winner or 0][1]
-            j = 0
-            k = 0
-            while j < len(sp) - 1 and k < len(top_splits) - 1:
-                (igt, ev) = sp[j]
-                (next_igt, _) = sp[j+1]
-                (top_igt, top_ev) = top_splits[k]
-                (next_top_igt, _) = top_splits[k+1]
-                if ev != top_ev:
-                    # print(f"[[yellow bold]WARN[/]] Event mismatch ({ev}, {top_ev})")
-                    k += 1
-                    continue
-                print(f"[{STYLES[ev][0]}]{ev.capitalize()}[/]", end="")
-                print(" " * (11 - len(ev)), end="")
-                a = next_igt - igt
-                b = next_top_igt - top_igt
-                if a > b:
-                    console.print(f"{a/(b+1):.2f}x ({(a-b)/1000:.1f}s) [dim]slower[/]", highlight=False)
-                else:
-                    console.print(f"{b/(a+1):.2f}x ({(b-a)/1000:.1f}s) [dim cyan]faster[/]", highlight=False)
-                j += 1
-                k += 1
-        print("[dim]Press enter to find next seed, 'r' to restart the current seed.")
-        inp = input()
-        if inp == "r":
-            continue
-        else:
-            break
-
-    if os.path.exists(replay_path):
+if __name__ == "__main__":
+    print("[[blue bold]INFO[/]] To [cyan bold]watch the pro replay[/] of the current seed, go to mcsr ranked -> my replays, the replay should be [cyan bold]first[/] in the list.")
+    with open(PLAY_SEEDS_FILE, 'r') as f:
+        lines = f.readlines()
+    print(f"[[blue bold]INFO[/]] {len(lines)} seeds remaining.")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         try:
-            os.remove(replay_path)
-        except OSError:
-            print("[[red bold]ERROR[/]] Could not remove replay file.")
-    del lines[i]
-    with open(PLAY_SEEDS_FILE, 'w') as f:
-        f.writelines(lines)
-    print(f"[[green bold]OK[/]] Seed removed from queue. {len(lines)} seeds remaining.")
+            seed = json.loads(line)
+        except json.JSONDecodeError:
+            print("[[red bold]ERROR[/]] Corrupt line in seeds file, skipping.")
+            i += 1
+            continue
+        if not PLAY_SEEDS.get(seed['type'], False):
+            i += 1
+            continue
+        dt = datetime.datetime.fromtimestamp(seed['date'] / 1000.0)
+        readable_date = dt.strftime("%b %d, %Y at %I:%M %p")
+        replay_path = REPLAY_PATH + "/seedscraper_" + str(seed["matchId"]) + ".rrf"
+        print("[[green bold]OK[/]] Found seed.")
+        if os.path.exists(replay_path):
+            os.utime(replay_path, None)
+        else:
+            print("[[yellow bold]WARN[/]] No replay file for this seed.")
+        winner = seed['winner']
+        expected_splits = ['overworld', 'nether', 'bastion', 'fortress', 'blind', 'stronghold', 'end', 'finish']
+        winner_splits = [s[1] for s in seed['splits'][winner or 0]]
+        if winner_splits != expected_splits:
+            print(f"[[yellow bold]WARN[/]] Unexpected splits: ", end="")
+            for j, s in enumerate(winner_splits):
+                if s == 'finish':
+                    break
+                if j:
+                    print(" -> ", end="")
+                print(f"[{STYLES[s][0]}]{s}", end="")
+            print()
+        print(f"[[blue bold]TYPE[/]] [yellow]{seed['type']}")
+        print(f"[[blue bold]GAME[/]] ", end="")
+        last = len(seed['players']) - 1
+        for (j, p) in enumerate(seed['players']):
+            if j == winner:
+                print(f"[green]{p}[/]", end="")
+            else:
+                print(f"[red]{p}[/]", end="")
+            if j != last:
+                print(" vs ", end="")
+        print(f", {readable_date}")
 
-print("[[yellow bold]WARN[/]] No more seeds, exiting.")
+        if 'vods' in seed:
+            for v in seed['vods']:
+                print(f"[[blue bold]VOD[/]] ", end="")
+                print(v)
+
+        while True:
+            print("[[blue bold]INFO[/]] The script will sleep for 3 seconds then create this world. Make sure to tab into mcsr ranked during this time.")
+            print("[[blue bold]INFO[/]] Make sure to be in the [bold cyan]minecraft main menu[/], not the ranked main menu.")
+            print("[dim]Press enter to continue, 'p' to use MPK, 's' to skip this seed.")
+            inp = input()
+            mpk = False
+            if inp == "s":
+                break
+            elif inp == "p":
+                mpk = True
+
+            console = Console()
+            with console.status("[bold cyan]Creating world...", spinner_style="bold cyan") as status:
+                for j in range(3, 0, -1):
+                    status.update(f"Creating world in [bold cyan]{j}[/]...")
+                    time.sleep(1)
+            create_world(seed, mpk)
+            print("[dim]Press enter after playing to see your splits, 'r' to restart the current seed.")
+            inp = input()
+            if inp == "r":
+                continue
+            all_splits = []
+            for (j, (p, s)) in enumerate(zip(seed['players'], seed['splits'])):
+                all_splits.append((p, s, j == winner))
+            sp = local_splits()
+            if sp is not None:
+                all_splits.append(("You", sp, True))
+                max_time = 0
+                name_len = 0
+                for (name, splits, _) in all_splits:
+                    t = splits[-1][0]
+                    if t > max_time:
+                        max_time = t
+                    l = len(name)
+                    if l > name_len:
+                        name_len = l
+                for (name, splits, finished) in all_splits:
+                    print(name, end="")
+                    print(" " * (name_len - len(name) + 1), end="")
+                    print_splits(splits, max_time, finished)
+                top_splits = all_splits[winner or 0][1]
+                j = 0
+                k = 0
+                while j < len(sp) - 1 and k < len(top_splits) - 1:
+                    (igt, ev) = sp[j]
+                    (next_igt, _) = sp[j+1]
+                    (top_igt, top_ev) = top_splits[k]
+                    (next_top_igt, _) = top_splits[k+1]
+                    if ev != top_ev:
+                        # print(f"[[yellow bold]WARN[/]] Event mismatch ({ev}, {top_ev})")
+                        k += 1
+                        continue
+                    print(f"[{STYLES[ev][0]}]{ev.capitalize()}[/]", end="")
+                    print(" " * (11 - len(ev)), end="")
+                    a = next_igt - igt
+                    b = next_top_igt - top_igt
+                    if a > b:
+                        console.print(f"{a/(b+1):.2f}x ({(a-b)/1000:.1f}s) [dim]slower[/]", highlight=False)
+                    else:
+                        console.print(f"{b/(a+1):.2f}x ({(b-a)/1000:.1f}s) [dim cyan]faster[/]", highlight=False)
+                    j += 1
+                    k += 1
+            print("[dim]Press enter to find next seed, 'r' to restart the current seed.")
+            inp = input()
+            if inp == "r":
+                continue
+            else:
+                break
+
+        if os.path.exists(replay_path):
+            try:
+                os.remove(replay_path)
+            except OSError:
+                print("[[red bold]ERROR[/]] Could not remove replay file.")
+        del lines[i]
+        with open(PLAY_SEEDS_FILE, 'w') as f:
+            f.writelines(lines)
+        print(f"[[green bold]OK[/]] Seed removed from queue. {len(lines)} seeds remaining.")
+
+    print("[[yellow bold]WARN[/]] No more seeds, exiting.")
 

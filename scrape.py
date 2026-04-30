@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import requests
+from play import write
 from zipfile import ZipFile
 from rich import print
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, MofNCompleteColumn
@@ -14,7 +15,7 @@ if platform.system() == "Windows":
 else:
     SCROLL_MULTIPLIER = 1
 
-REPLAY_PATH = MINECRAFT_PATH + "/mcsrranked/replay/seed_scraper.rrf"
+REPLAY_PATH = MINECRAFT_PATH + "/mcsrranked/replay/seedscraper.rrf"
 if os.path.exists(REPLAY_PATH):
     os.remove(REPLAY_PATH)
 
@@ -171,9 +172,7 @@ def scrape_page(loc, on_seed):
             raise e
         click(loc.left + 181, loc.top + 326)
         # In the replay saving menu, name the replay and press download 
-        pyautogui.press(REBIND_TOGGLE_HOTKEY)
-        pyautogui.write('seed_scraper')
-        pyautogui.press(REBIND_TOGGLE_HOTKEY)
+        write('seedscraper')
         click(loc.left + 81, loc.top + 186)
 
         # Wait for replay to download and exit out of the match
@@ -199,7 +198,7 @@ def scrape_page(loc, on_seed):
                         else:
                             matchId = None
         if matchId is not None:
-            os.rename(REPLAY_PATH, os.path.dirname(REPLAY_PATH) + "/seed_scraper_" + str(matchId) + ".rrf")
+            os.rename(REPLAY_PATH, os.path.dirname(REPLAY_PATH) + "/seedscraper_" + str(matchId) + ".rrf")
             on_seed()
         elif os.path.exists(REPLAY_PATH):
             os.remove(REPLAY_PATH)
