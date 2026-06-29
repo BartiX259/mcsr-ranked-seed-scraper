@@ -19,11 +19,13 @@ match answer:
                     continue
                 if not match["vod"]:
                     continue
+                ow = match["seed"]["overworld"]
                 match = requests.get(f"https://api.mcsrranked.com/matches/{match['id']}").json()["data"]
                 start_time = (match["date"] - match["result"]["time"] // 1000)
                 for event in reversed(match["timelines"]):
                     if event["type"] == "nether.find_bastion":
                         start_time += event["time"] // 1000
                         break
-                vods = [f"{vod['url']}?t={(start_time - vod['startsAt'])}s" for vod in match["vod"]]
-                print(vods)
+                vods = [f"{u} {ow} {vod['url']}?t={(start_time - vod['startsAt'])}s" for vod in match["vod"]]
+                for vod in vods:
+                    print(vod)

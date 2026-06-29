@@ -8,18 +8,18 @@ PLAY_SEEDS_FILE = SEEDS_FILE
 
 # Which seeds to save while scraping
 SAVE_SEEDS = {
-    "Village": True,
-    "Buried Treasure": True,
-    "Ruined Portal": True,
-    "Shipwreck": True,
+    "Village": False,
+    "Buried Treasure": False,
+    "Ruined Portal": False,
+    "Shipwreck": False,
     "Desert Temple": True
 }
 # Which seeds to play
 PLAY_SEEDS = {
-    "Village": True,
-    "Buried Treasure": True,
-    "Ruined Portal": True,
-    "Shipwreck": True,
+    "Village": False,
+    "Buried Treasure": False,
+    "Ruined Portal": False,
+    "Shipwreck": False,
     "Desert Temple": True
 }
 

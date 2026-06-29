@@ -8,7 +8,7 @@ from play import write
 from zipfile import ZipFile
 from rich import print
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn, MofNCompleteColumn
-from config import MINECRAFT_PATH, SEEDS_FILE, SAVE_SEEDS, REBIND_TOGGLE_HOTKEY 
+from config import MINECRAFT_PATH, SEEDS_FILE, SAVE_SEEDS, REBIND_TOGGLE_HOTKEY
 
 if platform.system() == "Windows":
     SCROLL_MULTIPLIER = 120
@@ -65,7 +65,8 @@ def click(x, y):
     time.sleep(0.02)
     pyautogui.click(x, y)
 
-def wait_for_pixel(x, y, expected_red, bad_red = None, debug = False):
+def wait_for_pixel(x, y, expected_red, bad_red = None, debug = True):
+    x, y = int(x), int(y)
     if debug:
         print(f"Waiting for pixel ({expected_red})")
     last_pix = None

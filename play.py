@@ -4,6 +4,7 @@ import shutil
 import json
 import datetime
 import pydirectinput
+import pyscreenrec
 from rich import print
 from rich.console import Console
 from rich.progress import Progress
@@ -73,6 +74,18 @@ def wait_for_world_load():
                 time.sleep(0.5)
                 return True
 
+def wait_for_world_exit():
+    with open(LOG_PATH, 'r', encoding='utf-8', errors='ignore') as f:
+        f.seek(0, os.SEEK_END)
+        while True:
+            line = f.readline()
+            if not line:
+                time.sleep(1)
+                continue
+            if "lost connection:" in line or "Stopping singleplayer server" in line:
+                time.sleep(1.5)
+                return True
+
 pydirectinput.PAUSE = 0.02
 
 def create_world(seed, mpk):
@@ -134,7 +147,8 @@ def create_world(seed, mpk):
         progress.advance(task)
     if mpk:
         print("[[blue bold]INFO[/]] Waiting for world load to use MPK.")
-        wait_for_world_load()
+    wait_for_world_load()
+    if mpk:
         pydirectinput.keyDown(LOAD_HOTBAR_BIND)
         pydirectinput.press('1')
         pydirectinput.keyUp(LOAD_HOTBAR_BIND)
@@ -247,6 +261,11 @@ if __name__ == "__main__":
                     status.update(f"Creating world in [bold cyan]{j}[/]...")
                     time.sleep(1)
             create_world(seed, mpk)
+            recorder = pyscreenrec.ScreenRecorder()
+            recorder.start_recording("game.mp4", 20)
+            print("[[blue bold]INFO[/]] Recording started. Waiting for world exit.")
+            wait_for_world_exit()
+            recorder.stop_recording()
             print("[dim]Press enter after playing to see your splits, 'r' to restart the current seed.")
             inp = input()
             if inp == "r":
