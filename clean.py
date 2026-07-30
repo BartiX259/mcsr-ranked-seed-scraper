@@ -45,13 +45,22 @@ elif inp == "c":
     open(SEEDS_FILE, 'w').close()
     print(f"[[red bold]ALL SEEDS[/]] {os.path.basename(SEEDS_FILE)}")
 elif inp == "w":
-    junk_patterns =[
-        os.path.join(saves_dir, "New World"),
-        os.path.join(saves_dir, "New World (*)"),
-        os.path.join(saves_dir, "mcsrranked #*")
+    base_names = [
+        "New World",
+        "New Wurld",
+        "Nowy świat",
+        "Ny verden",
+        "Ny wärd"
     ]
+    junk_patterns = []
+    for name in base_names:
+        junk_patterns.append(os.path.join(saves_dir, name))
+        junk_patterns.append(os.path.join(saves_dir, f"{name} (*)"))
+    junk_patterns.append(os.path.join(saves_dir, "mcsrranked #*"))
+
     for pat in junk_patterns:
         for world_path in glob.glob(pat):
             if os.path.isdir(world_path):
                 shutil.rmtree(world_path)
                 print(f"[[red bold]WORLD[/]] {os.path.basename(world_path)}")
+

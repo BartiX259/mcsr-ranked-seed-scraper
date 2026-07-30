@@ -3,17 +3,26 @@ import os
 import shutil
 import json
 import datetime
-import pydirectinput
-import pyscreenrec
+try:
+    import pyautogui
+except:
+    print("No pyautogui")
+try:
+    import pydirectinput
+except:
+    print("No pydirectinput")
+try:
+    import pyscreenrec
+except:
+    print("No pyscreenrec")
 from rich import print
 from rich.console import Console
 from rich.progress import Progress
 from config import MINECRAFT_PATH, PLAY_SEEDS_FILE, PLAY_SEEDS, LOAD_HOTBAR_BIND, REBIND_TOGGLE_HOTKEY
 
-REPLAY_PATH = MINECRAFT_PATH + "/mcsrranked/replay"
-WORLD_PATH = MINECRAFT_PATH + "/saves/seedscraper"
-LOG_PATH = MINECRAFT_PATH + "/logs/latest.log"
-IGT_PATH = WORLD_PATH + "/speedrunigt/record.json"
+REPLAY_PATH = os.path.join(MINECRAFT_PATH, "mcsrranked", "replay")
+WORLD_PATH = os.path.join(MINECRAFT_PATH, "saves", "seedscraper")
+LOG_PATH = os.path.join(MINECRAFT_PATH, "logs", "latest.log")
 
 EVENT_MAP = {
     # SpeedrunIGT events
@@ -48,19 +57,35 @@ def shift_tab(n):
     pydirectinput.keyUp('shift')
 
 def write(text):
-    prev_pause = pydirectinput.PAUSE
-    pydirectinput.PAUSE = 0.01
-    time.sleep(0.05)
-    pydirectinput.press(REBIND_TOGGLE_HOTKEY)
-    if REBIND_TOGGLE_HOTKEY.isprintable():
-        pydirectinput.press('backspace')
-    pydirectinput.write(text, interval=0.01)
-    pydirectinput.PAUSE = prev_pause
-    time.sleep(0.05)
-    pydirectinput.press(REBIND_TOGGLE_HOTKEY)
-    if REBIND_TOGGLE_HOTKEY.isprintable():
-        pydirectinput.press('backspace')
-    time.sleep(0.05)
+    try:
+        prev_pause = pydirectinput.PAUSE
+        pydirectinput.PAUSE = 0.01
+        time.sleep(0.05)
+        pydirectinput.press(REBIND_TOGGLE_HOTKEY)
+        if REBIND_TOGGLE_HOTKEY.isprintable():
+            pydirectinput.press('backspace')
+        pydirectinput.write(text, interval=0.01)
+        pydirectinput.PAUSE = prev_pause
+        time.sleep(0.05)
+        pydirectinput.press(REBIND_TOGGLE_HOTKEY)
+        if REBIND_TOGGLE_HOTKEY.isprintable():
+            pydirectinput.press('backspace')
+        time.sleep(0.05)
+    except:
+        pyautogui.write(text, interval=0.01)
+        time.sleep(0.05)
+
+def get_loaded_world_name():
+    if not os.path.exists(LOG_PATH):
+        return "seedscraper"
+    with open(LOG_PATH, 'r', encoding='utf-8', errors='ignore') as f:
+        lines = f.readlines()
+        for line in reversed(lines):
+            if "Attempting event world load at" in line:
+                parts = line.split("Attempting event world load at ")
+                if len(parts) > 1:
+                    return parts[1].strip()
+    return "seedscraper"
 
 def wait_for_world_load():
     with open(LOG_PATH, 'r', encoding='utf-8', errors='ignore') as f:
@@ -71,8 +96,8 @@ def wait_for_world_load():
                 time.sleep(0.2)
                 continue
             if "logged in with entity id" in line:
-                time.sleep(0.5)
-                return True
+                time.sleep(1.0)
+                return get_loaded_world_name()
 
 def wait_for_world_exit():
     with open(LOG_PATH, 'r', encoding='utf-8', errors='ignore') as f:
@@ -86,7 +111,10 @@ def wait_for_world_exit():
                 time.sleep(1.5)
                 return True
 
-pydirectinput.PAUSE = 0.02
+try:
+    pydirectinput.PAUSE = 0.02
+except:
+    ...
 
 def create_world(seed, mpk):
     with Progress() as progress:
@@ -145,21 +173,14 @@ def create_world(seed, mpk):
         tab(4)
         pydirectinput.press('enter')
         progress.advance(task)
-    if mpk:
-        print("[[blue bold]INFO[/]] Waiting for world load to use MPK.")
-    wait_for_world_load()
-    if mpk:
-        pydirectinput.keyDown(LOAD_HOTBAR_BIND)
-        pydirectinput.press('1')
-        pydirectinput.keyUp(LOAD_HOTBAR_BIND)
-    print("[[green bold]OK[/]] World created.")
 
-def local_splits():
-    if not os.path.exists(IGT_PATH):
-        print(f"[[red bold]ERROR[/]] Speedrunigt not initialized ({IGT_PATH}).")
+def local_splits(world_name):
+    igt_path = os.path.join(MINECRAFT_PATH, "saves", world_name, "speedrunigt", "record.json")
+    if not os.path.exists(igt_path):
+        print(f"[[red bold]ERROR[/]] Speedrunigt not initialized ({igt_path}).")
         return None
     splits = [(0, "overworld")]
-    with open(IGT_PATH, "r") as f:
+    with open(igt_path, "r") as f:
         data = json.load(f)
         for timeline in data["timelines"]:
             ev = timeline["name"]
@@ -191,6 +212,8 @@ def print_splits(splits, max_time=None, finished=True):
         print("-:-")
 
 if __name__ == "__main__":
+    console = Console()
+    
     print("[[blue bold]INFO[/]] To [cyan bold]watch the pro replay[/] of the current seed, go to mcsr ranked -> my replays, the replay should be [cyan bold]first[/] in the list.")
     with open(PLAY_SEEDS_FILE, 'r') as f:
         lines = f.readlines()
@@ -247,25 +270,42 @@ if __name__ == "__main__":
         while True:
             print("[[blue bold]INFO[/]] The script will sleep for 3 seconds then create this world. Make sure to tab into mcsr ranked during this time.")
             print("[[blue bold]INFO[/]] Make sure to be in the [bold cyan]minecraft main menu[/], not the ranked main menu.")
-            print("[dim]Press enter to continue, 'p' to use MPK, 's' to skip this seed.")
+            print("[dim]Press enter to continue, 'p' to use MPK, 'd' to display the seed, 's' to skip this seed.")
             inp = input()
-            mpk = False
             if inp == "s":
                 break
-            elif inp == "p":
-                mpk = True
 
-            console = Console()
-            with console.status("[bold cyan]Creating world...", spinner_style="bold cyan") as status:
-                for j in range(3, 0, -1):
-                    status.update(f"Creating world in [bold cyan]{j}[/]...")
-                    time.sleep(1)
-            create_world(seed, mpk)
-            recorder = pyscreenrec.ScreenRecorder()
-            recorder.start_recording("game.mp4", 20)
+            if inp != "d":
+                with console.status("[bold cyan]Creating world...", spinner_style="bold cyan") as status:
+                    for j in range(3, 0, -1):
+                        status.update(f"Creating world in [bold cyan]{j}[/]...")
+                        time.sleep(1)
+                create_world(seed, inp == "p")
+            if inp == "p":
+                print("[[blue bold]INFO[/]] Waiting for world load to use MPK.")
+            elif inp == "d":
+                print(f"[[blue bold]OVERWORLD[/]] {seed['overworldSeed']}")
+                print(f"[[blue bold]NETHER[/]]    {seed['netherSeed']}")
+                print("[[blue bold]INFO[/]] Waiting for world load.")
+
+            loaded_world_name = wait_for_world_load()
+
+            if inp == "p":
+                pydirectinput.keyDown(LOAD_HOTBAR_BIND)
+                pydirectinput.press('1')
+                pydirectinput.keyUp(LOAD_HOTBAR_BIND)
+            print(f"[[green bold]OK[/]] World loaded: [cyan]{loaded_world_name}[/]")
+            try:
+                recorder = pyscreenrec.ScreenRecorder()
+                recorder.start_recording("game.mp4", 20)
+            except:
+                ...
             print("[[blue bold]INFO[/]] Recording started. Waiting for world exit.")
             wait_for_world_exit()
-            recorder.stop_recording()
+            try:
+                recorder.stop_recording()
+            except:
+                ...
             print("[dim]Press enter after playing to see your splits, 'r' to restart the current seed.")
             inp = input()
             if inp == "r":
@@ -273,7 +313,8 @@ if __name__ == "__main__":
             all_splits = []
             for (j, (p, s)) in enumerate(zip(seed['players'], seed['splits'])):
                 all_splits.append((p, s, j == winner))
-            sp = local_splits()
+
+            sp = local_splits(loaded_world_name)
             if sp is not None:
                 all_splits.append(("You", sp, True))
                 max_time = 0
