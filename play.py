@@ -15,9 +15,10 @@ try:
     import pyscreenrec
 except:
     print("No pyscreenrec")
-from rich import print
+from rich import print, box
 from rich.console import Console
 from rich.progress import Progress
+from rich.table import Table
 from config import MINECRAFT_PATH, PLAY_SEEDS_FILE, PLAY_SEEDS, LOAD_HOTBAR_BIND, REBIND_TOGGLE_HOTKEY
 
 REPLAY_PATH = os.path.join(MINECRAFT_PATH, "mcsrranked", "replay")
@@ -25,7 +26,6 @@ WORLD_PATH = os.path.join(MINECRAFT_PATH, "saves", "seedscraper")
 LOG_PATH = os.path.join(MINECRAFT_PATH, "logs", "latest.log")
 
 EVENT_MAP = {
-    # SpeedrunIGT events
     "enter_nether": "nether",
     "enter_bastion": "bastion",
     "enter_fortress": "fortress",
@@ -43,6 +43,199 @@ STYLES = {
     "stronghold": ("grey70", "▒"),
     "end":        ("purple", "█"),
 }
+
+RANK_DATA = {
+    "coal": {
+        "general": {"overworld": 235000, "nether": 65000, "bastion": 345000, "fortress": 190000, "blind": 330000, "stronghold": 185000, "end": 165000},
+        "overworld": {"Village": 235000, "Shipwreck": 210000, "Desert Temple": 215000, "Ruined Portal": 108000, "Buried Treasure": None}
+    },
+    "iron": {
+        "general": {"overworld": 221000, "nether": 57000, "bastion": 345000, "fortress": 155000, "blind": 224000, "stronghold": 130000, "end": 145000},
+        "overworld": {"Village": 255000, "Shipwreck": 250000, "Desert Temple": 235000, "Ruined Portal": 138000, "Buried Treasure": None}
+    },
+    "gold": {
+        "general": {"overworld": 185000, "nether": 54000, "bastion": 295000, "fortress": 152000, "blind": 195000, "stronghold": 95000, "end": 152000},
+        "overworld": {"Village": 230000, "Shipwreck": 225000, "Desert Temple": 198000, "Ruined Portal": 110000, "Buried Treasure": None}
+    },
+    "emerald": {
+        "general": {"overworld": 148000, "nether": 41000, "bastion": 242000, "fortress": 132000, "blind": 138000, "stronghold": 78000, "end": 118000},
+        "overworld": {"Village": 177000, "Shipwreck": 163000, "Desert Temple": 164000, "Ruined Portal": 92000, "Buried Treasure": 151000}
+    },
+    "diamond": {
+        "general": {"overworld": 128000, "nether": 37000, "bastion": 202000, "fortress": 114000, "blind": 119000, "stronghold": 57000, "end": 96000},
+        "overworld": {"Village": 156000, "Shipwreck": 150000, "Desert Temple": 145000, "Ruined Portal": 82000, "Buried Treasure": 132000}
+    },
+    "netherite": {
+        "general": {"overworld": 117000, "nether": 31000, "bastion": 155000, "fortress": 82000, "blind": 90000, "stronghold": 38000, "end": 62000},
+        "overworld": {"Village": 145000, "Shipwreck": 122000, "Desert Temple": 132000, "Ruined Portal": 73000, "Buried Treasure": 115000}
+    },
+    "pro": {
+        "general": {"overworld": 100000, "nether": 31000, "bastion": 155000, "fortress": 85000, "blind": 90000, "stronghold": 39000, "end": 67000},
+        "overworld": {"Village": 124000, "Shipwreck": 115000, "Desert Temple": 108000, "Ruined Portal": 62000, "Buried Treasure": 100000}
+    }
+}
+
+RANKS = ["coal", "iron", "gold", "emerald", "diamond", "netherite", "pro"]
+
+RANK_COLORS = {
+    "coal": "grey37",
+    "iron": "grey70",
+    "gold": "gold1",
+    "emerald": "bright_green",
+    "diamond": "bright_cyan",
+    "netherite": "bright_magenta",
+    "pro": "bright_yellow"
+}
+
+def get_base_rank_time(rank, split_key, ow_key=None):
+    if split_key == "overworld" and ow_key and RANK_DATA[rank]["overworld"].get(ow_key) is not None:
+        return RANK_DATA[rank]["overworld"][ow_key]
+    return RANK_DATA[rank]["general"].get(split_key, 0)
+
+def format_ms(ms):
+    ms = int(ms)
+    s = (ms // 1000) % 60
+    m = (ms // 1000) // 60
+    d = (ms % 1000) // 100
+    return f"{m}:{s:02d}.{d}"
+
+def get_rank_and_boundaries(user_time, base_times, delta, pro_time):
+    adjusted_times = {}
+    for r in RANKS:
+        base_val = base_times[r]
+        adjusted_times[r] = max(pro_time, base_val - delta)
+
+    midpoints = {}
+    for idx in range(len(RANKS) - 1):
+        r_curr = RANKS[idx]
+        r_next = RANKS[idx+1]
+        midpoints[r_curr] = (adjusted_times[r_curr] + adjusted_times[r_next]) / 2
+
+    est_rank = "coal"
+    for idx in range(len(RANKS) - 1, 0, -1):
+        r_check = RANKS[idx]
+        if user_time <= midpoints[RANKS[idx-1]]:
+            est_rank = r_check
+            break
+
+    to_rank_up = None
+    if est_rank != "pro":
+        rank_idx = RANKS.index(est_rank)
+        to_rank_up = user_time - midpoints[RANKS[rank_idx]]
+
+    return est_rank, to_rank_up, adjusted_times
+
+def generate_splits_table(sp, top_splits, ow_key):
+    table = Table(box=box.ROUNDED, show_header=True, header_style="bold white")
+    table.add_column("Split", justify="left")
+    table.add_column("Your Time", justify="right")
+    table.add_column("Est. Split Rank", justify="center")
+    table.add_column("To Rank Up", justify="right")
+    table.add_column("Seed +/-", justify="center")
+    table.add_column("Pro Time", justify="right")
+    table.add_column("vs Pro", justify="right")
+
+    total_user_time = 0
+    total_pro_time = 0
+    adjusted_overall_rank_times = {r: 0 for r in RANKS}
+    total_pro_base = 0
+
+    is_run_fully_finished = (sp[-2][1] == "end")
+
+    j = 0
+    k = 0
+    while j < len(sp) - 1 and k < len(top_splits) - 1:
+        (igt, ev) = sp[j]
+        (next_igt, _) = sp[j+1]
+        (top_igt, top_ev) = top_splits[k]
+        (next_top_igt, _) = top_splits[k+1]
+        if ev != top_ev:
+            k += 1
+            continue
+
+        user_split = next_igt - igt
+        pro_split = next_top_igt - top_igt
+
+        is_last_split = (j == len(sp) - 2)
+        is_split_completed = not (is_last_split and not is_run_fully_finished)
+
+        pro_base = get_base_rank_time("pro", ev, ow_key)
+        delta = pro_base - pro_split
+
+        if is_split_completed:
+            total_user_time += user_split
+            total_pro_time += pro_split
+            total_pro_base += pro_base
+
+            base_times = {r: get_base_rank_time(r, ev, ow_key) for r in RANKS}
+            est_rank, to_rank_up, adj_times = get_rank_and_boundaries(user_split, base_times, delta, pro_split)
+
+            for r in RANKS:
+                adjusted_overall_rank_times[r] += adj_times[r]
+
+            to_rank_up_str = f"+{to_rank_up/1000:.1f}s" if to_rank_up is not None else "-"
+            est_rank_display = f"[{RANK_COLORS[est_rank]}]{est_rank.capitalize()}[/]"
+
+            vs_diff = user_split - pro_split
+            vs_pro_str = f"[red]+{vs_diff/1000:.1f}s[/]" if vs_diff > 0 else f"[cyan]-{abs(vs_diff)/1000:.1f}s[/]"
+
+            if delta > 0:
+                seed_diff_str = f"[cyan]-{delta/1000:.1f}s[/]"
+            elif delta < 0:
+                seed_diff_str = f"[red]+{abs(delta)/1000:.1f}s[/]"
+            else:
+                seed_diff_str = "[grey70]0.0s[/]"
+        else:
+            est_rank_display = "-"
+            to_rank_up_str = "-"
+            seed_diff_str = "-"
+            vs_pro_str = "-"
+
+        split_display = f"[{STYLES[ev][0]}]{ev.capitalize()}[/]"
+
+        table.add_row(
+            split_display,
+            format_ms(user_split),
+            est_rank_display,
+            to_rank_up_str,
+            seed_diff_str,
+            format_ms(pro_split),
+            vs_pro_str
+        )
+
+        j += 1
+        k += 1
+
+    if total_user_time > 0:
+        overall_rank, overall_to_rank_up, _ = get_rank_and_boundaries(
+            total_user_time, adjusted_overall_rank_times, 0, total_pro_time
+        )
+
+        overall_to_rank_up_str = f"+{format_ms(overall_to_rank_up)}" if overall_to_rank_up is not None else "-"
+
+        overall_delta = total_pro_base - total_pro_time
+        if overall_delta > 0:
+            overall_seed_diff = f"[cyan]-{format_ms(overall_delta)}[/]"
+        elif overall_delta < 0:
+            overall_seed_diff = f"[red]+{format_ms(abs(overall_delta))}[/]"
+        else:
+            overall_seed_diff = "[grey70]0.0s[/]"
+
+        overall_vs_diff = total_user_time - total_pro_time
+        overall_vs_pro = f"[red]+{format_ms(overall_vs_diff)}[/]" if overall_vs_diff > 0 else f"[cyan]-{format_ms(abs(overall_vs_diff))}[/]"
+
+        table.add_section()
+        table.add_row(
+            "[bold white]OVERALL[/]",
+            format_ms(total_user_time),
+            f"[bold {RANK_COLORS[overall_rank]}]{overall_rank.capitalize()}[/]",
+            overall_to_rank_up_str,
+            overall_seed_diff,
+            format_ms(total_pro_time),
+            overall_vs_pro
+        )
+
+    return table
 
 def tab(n):
     for i in range(n):
@@ -133,6 +326,7 @@ def create_world(seed, mpk):
         pydirectinput.keyDown('ctrl')
         pydirectinput.press('backspace')
         pydirectinput.press('backspace')
+        pydirectinput.press('backspace')
         pydirectinput.keyUp('ctrl')
         write('seedscraper')
         progress.advance(task)
@@ -213,7 +407,7 @@ def print_splits(splits, max_time=None, finished=True):
 
 if __name__ == "__main__":
     console = Console()
-    
+
     print("[[blue bold]INFO[/]] To [cyan bold]watch the pro replay[/] of the current seed, go to mcsr ranked -> my replays, the replay should be [cyan bold]first[/] in the list.")
     with open(PLAY_SEEDS_FILE, 'r') as f:
         lines = f.readlines()
@@ -330,28 +524,10 @@ if __name__ == "__main__":
                     print(name, end="")
                     print(" " * (name_len - len(name) + 1), end="")
                     print_splits(splits, max_time, finished)
-                top_splits = all_splits[winner or 0][1]
-                j = 0
-                k = 0
-                while j < len(sp) - 1 and k < len(top_splits) - 1:
-                    (igt, ev) = sp[j]
-                    (next_igt, _) = sp[j+1]
-                    (top_igt, top_ev) = top_splits[k]
-                    (next_top_igt, _) = top_splits[k+1]
-                    if ev != top_ev:
-                        # print(f"[[yellow bold]WARN[/]] Event mismatch ({ev}, {top_ev})")
-                        k += 1
-                        continue
-                    print(f"[{STYLES[ev][0]}]{ev.capitalize()}[/]", end="")
-                    print(" " * (11 - len(ev)), end="")
-                    a = next_igt - igt
-                    b = next_top_igt - top_igt
-                    if a > b:
-                        console.print(f"{a/(b+1):.2f}x ({(a-b)/1000:.1f}s) [dim]slower[/]", highlight=False)
-                    else:
-                        console.print(f"{b/(a+1):.2f}x ({(b-a)/1000:.1f}s) [dim cyan]faster[/]", highlight=False)
-                    j += 1
-                    k += 1
+
+                table = generate_splits_table(sp, all_splits[winner or 0][1], seed['type'])
+                console.print(table)
+
             print("[dim]Press enter to find next seed, 'r' to restart the current seed.")
             inp = input()
             if inp == "r":
